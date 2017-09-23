@@ -1,37 +1,30 @@
-/*****************************************************************************
-// * This source file is part of ArkGameFrame                                *
-// * For the latest info, see https://github.com/ArkGame                     *
-// *                                                                         *
-// * Copyright(c) 2013 - 2017 ArkGame authors.                               *
-// *                                                                         *
-// * Licensed under the Apache License, Version 2.0 (the "License");         *
-// * you may not use this file except in compliance with the License.        *
-// * You may obtain a copy of the License at                                 *
-// *                                                                         *
-// *     http://www.apache.org/licenses/LICENSE-2.0                          *
-// *                                                                         *
-// * Unless required by applicable law or agreed to in writing, software     *
-// * distributed under the License is distributed on an "AS IS" BASIS,       *
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*
-// * See the License for the specific language governing permissions and     *
-// * limitations under the License.                                          *
-// *                                                                         *
-// *                                                                         *
-// * @file      AFINetModule.h                                                *
-// * @author    Ark Game Tech                                                *
-// * @date      2015-12-15                                                   *
-// * @brief     AFINetModule                                                  *
-*****************************************************************************/
-#ifndef AFI_NET_MODULE_H
-#define AFI_NET_MODULE_H
+/*
+* This source file is part of ArkGameFrame
+* For the latest info, see https://github.com/ArkGame
+*
+* Copyright (c) 2013-2017 ArkGame authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+*/
+
+#pragma once
 
 #include <iostream>
 #include <iosfwd>
-//#include "SDK/Core/AFGUID.h"
 #include "AFIModule.h"
 #include "AFIPluginManager.h"
 #include "SDK/Net/AFCNetServer.h"
-//#include "SDK/Core/AFQueue.h"
 #include "SDK/Proto/AFMsgDefine.h"
 #include "SDK/Proto/AFDefine.pb.h"
 
@@ -48,7 +41,6 @@ enum NF_SERVER_TYPES
 
 };
 
-
 class AFINetModule
     : public AFIModule
 {
@@ -63,18 +55,18 @@ public:
     }
 
     template<typename BaseType>
-    bool AddReceiveCallBack(const int nMsgID, BaseType* pBase, void (BaseType::*handleRecieve)(const int, const char*, const uint32_t, const AFGUID&))
+    bool AddReceiveCallBack(const int nMsgID, BaseType* pBase, void (BaseType::*handleRecieve)(const AFIMsgHead& xHead, const int, const char*, const uint32_t, const AFGUID&))
     {
-        NET_RECEIVE_FUNCTOR functor = std::bind(handleRecieve, pBase, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+        NET_RECEIVE_FUNCTOR functor = std::bind(handleRecieve, pBase, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         NET_RECEIVE_FUNCTOR_PTR functorPtr(new NET_RECEIVE_FUNCTOR(functor));
 
         return AddReceiveCallBack(nMsgID, functorPtr);
     }
 
     template<typename BaseType>
-    bool AddReceiveCallBack(BaseType* pBase, void (BaseType::*handleRecieve)(const int, const char*, const uint32_t, const AFGUID&))
+    bool AddReceiveCallBack(BaseType* pBase, void (BaseType::*handleRecieve)(const AFIMsgHead& xHead, const int, const char*, const uint32_t, const AFGUID&))
     {
-        NET_RECEIVE_FUNCTOR functor = std::bind(handleRecieve, pBase, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+        NET_RECEIVE_FUNCTOR functor = std::bind(handleRecieve, pBase, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         NET_RECEIVE_FUNCTOR_PTR functorPtr(new NET_RECEIVE_FUNCTOR(functor));
 
         return AddReceiveCallBack(functorPtr);
@@ -115,38 +107,16 @@ public:
         return true;
     }
 
-    static bool ReceivePB(const int nMsgID, const char* msg, const uint32_t nLen, std::string& strMsg, AFGUID& nPlayer)
+    static bool ReceivePB(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, std::string& strMsg, AFGUID& nPlayer)
     {
-        AFMsg::MsgBase xMsg;
-        if(!xMsg.ParseFromArray(msg, nLen))
-        {
-            //char szData[MAX_PATH] = { 0 };
-            //NFSPRINTF(szData, MAX_PATH, "Parse Message Failed from Packet to MsgBase, MessageID: %d\n", nMsgID);
-            //LogRecive(szData);
-
-            return false;
-        }
-
-        strMsg.assign(xMsg.msg_data().data(), xMsg.msg_data().length());
-
-        nPlayer = PBToNF(xMsg.player_id());
-
+        strMsg.assign(msg, nLen);
+        nPlayer = xHead.GetPlayerID();
         return true;
     }
 
-    static bool ReceivePB(const int nMsgID, const char* msg, const uint32_t nLen, google::protobuf::Message& xData, AFGUID& nPlayer)
+    static bool ReceivePB(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, google::protobuf::Message& xData, AFGUID& nPlayer)
     {
-        AFMsg::MsgBase xMsg;
-        if(!xMsg.ParseFromArray(msg, nLen))
-        {
-            //char szData[MAX_PATH] = { 0 };
-            //NFSPRINTF(szData, MAX_PATH, "Parse Message Failed from Packet to MsgBase, MessageID: %d\n", nMsgID);
-            //LogRecive(szData);
-
-            return false;
-        }
-
-        if(!xData.ParseFromString(xMsg.msg_data()))
+        if(!xData.ParseFromString(std::string(msg, nLen)))
         {
             char szData[MAX_PATH] = { 0 };
             //NFSPRINTF(szData, MAX_PATH, "Parse Message Failed from MsgData to ProtocolData, MessageID: %d\n", nMsgID);
@@ -155,7 +125,7 @@ public:
             return false;
         }
 
-        nPlayer = PBToNF(xMsg.player_id());
+        nPlayer = xHead.GetPlayerID();
 
         return true;
     }
@@ -369,22 +339,20 @@ public:
     }
 
 protected:
-    void OnReceiveBaseNetPack(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+    void OnReceiveBaseNetPack(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
     {
         std::map<int, NET_RECEIVE_FUNCTOR_PTR>::iterator it = mxReceiveCallBack.find(nMsgID);
         if(mxReceiveCallBack.end() != it)
         {
             NET_RECEIVE_FUNCTOR_PTR& pFunPtr = it->second;
-            NET_RECEIVE_FUNCTOR* pFunc = pFunPtr.get();
-            pFunc->operator()(nMsgID, msg, nLen, xClientID);
+            (*pFunPtr)(xHead, nMsgID, msg, nLen, xClientID);
         }
         else
         {
             for(std::list<NET_RECEIVE_FUNCTOR_PTR>::iterator it = mxCallBackList.begin(); it != mxCallBackList.end(); ++it)
             {
                 NET_RECEIVE_FUNCTOR_PTR& pFunPtr = *it;
-                NET_RECEIVE_FUNCTOR* pFunc = pFunPtr.get();
-                pFunc->operator()(nMsgID, msg, nLen, xClientID);
+                (*pFunPtr)(xHead, nMsgID, msg, nLen, xClientID);
             }
         }
     }
@@ -394,8 +362,7 @@ protected:
         for(std::list<NET_EVENT_FUNCTOR_PTR>::iterator it = mxEventCallBackList.begin(); it != mxEventCallBackList.end(); ++it)
         {
             NET_EVENT_FUNCTOR_PTR& pFunPtr = *it;
-            NET_EVENT_FUNCTOR* pFunc = pFunPtr.get();
-            pFunc->operator()(eEvent, xClientID, nServerID);
+            (*pFunPtr)(eEvent, xClientID, nServerID);
         }
     }
 
@@ -404,7 +371,3 @@ protected:
     std::list<NET_EVENT_FUNCTOR_PTR> mxEventCallBackList;
     std::list<NET_RECEIVE_FUNCTOR_PTR> mxCallBackList;
 };
-
-#endif
-
-

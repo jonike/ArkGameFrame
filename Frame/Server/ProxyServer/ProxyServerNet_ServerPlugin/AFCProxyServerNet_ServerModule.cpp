@@ -106,56 +106,30 @@ int AFCProxyServerNet_ServerModule::HB_OnConnectCheckTime(const AFGUID& self, co
     return 0;
 }
 
-void AFCProxyServerNet_ServerModule::OnOtherMessage(const int nMsgID, const char * msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnOtherMessage(const AFIMsgHead& xHead, const int nMsgID, const char * msg, const uint32_t nLen, const AFGUID& xClientID)
 {
-    AFMsg::MsgBase xMsg;
-    if(!xMsg.ParseFromArray(msg, nLen))
-    {
-        char szData[MAX_PATH] = { 0 };
-        sprintf(szData, "Parse Message Failed from Packet to MsgBase, MessageID: %d\n", nMsgID);
-
-        return;
-    }
-
     ARK_SHARE_PTR<SessionData> pSessionData = mmSessionData.GetElement(xClientID);
     if(!pSessionData || pSessionData->mnLogicState <= 0 || pSessionData->mnGameID <= 0)
     {
         //state error
         return;
     }
-    if(xMsg.has_hash_ident())
-    {
-        //special for distributed
-        if(!pSessionData->mnHashIdentID.IsNull())
-        {
-            AFCMachineNode xNode;
-            if(mxConsistentHash.GetSuitNode(pSessionData->mnHashIdentID.ToString(), xNode))
-            {
-                m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(xNode.GetDataID(), nMsgID, msg, nLen);
-            }
-        }
-        else
-        {
-            AFGUID xHashIdent = AFINetServerModule::PBToNF(xMsg.hash_ident());
 
-            AFCMachineNode xNode;
-            if(mxConsistentHash.GetSuitNode(xHashIdent.ToString(), xNode))
-            {
-                m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(xNode.GetDataID(), nMsgID, msg, nLen);
-            }
-        }
-    }
-    else
+    if(pSessionData->mnUserID != xHead.GetPlayerID())
     {
-        m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, msg, nLen);
+        //when after entergame xHead.GetPlayerID() is really palyerID
+        m_pLogModule->LogError(xHead.GetPlayerID(), "xHead.GetPlayerID() is not really palyerID", "", __FUNCTION__, __LINE__);
+        return;
     }
+
+    m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, msg, nLen, xHead.GetPlayerID());
 }
 
-void AFCProxyServerNet_ServerModule::OnConnectKeyProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnConnectKeyProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     AFGUID nPlayerID;
     AFMsg::ReqAccountLogin xMsg;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xMsg, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xMsg, nPlayerID))
     {
         return;
     }
@@ -207,25 +181,14 @@ void AFCProxyServerNet_ServerModule::OnClientDisconnect(const AFGUID& xClientID)
         {
             if(!pSessionData->mnUserID.IsNull())
             {
-                //掉线
                 AFMsg::ReqLeaveGameServer xData;
-
-                AFMsg::MsgBase xMsg;
-                //playerid主要是网关转发消息的时候做识别使用，其他使用不使用
-                *xMsg.mutable_player_id() = AFINetServerModule::NFToPB(pSessionData->mnUserID);
-
-                if(!xData.SerializeToString(xMsg.mutable_msg_data()))
-                {
-                    return;
-                }
-
                 std::string strMsg;
-                if(!xMsg.SerializeToString(&strMsg))
+                if(!xData.SerializeToString(&strMsg))
                 {
                     return;
                 }
 
-                m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_LEAVE_GAME, strMsg);
+                m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_LEAVE_GAME, strMsg, pSessionData->mnUserID);
             }
         }
 
@@ -233,11 +196,11 @@ void AFCProxyServerNet_ServerModule::OnClientDisconnect(const AFGUID& xClientID)
     }
 }
 
-void AFCProxyServerNet_ServerModule::OnSelectServerProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnSelectServerProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     AFGUID nPlayerID;
     AFMsg::ReqSelectServer xMsg;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xMsg, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xMsg, nPlayerID))
     {
         return;
     }
@@ -263,11 +226,11 @@ void AFCProxyServerNet_ServerModule::OnSelectServerProcess(const int nMsgID, con
     m_pNetModule->SendMsgPB(AFMsg::EGameMsgID::EGMI_ACK_SELECT_SERVER, xMsg, xClientID, nPlayerID);
 }
 
-void AFCProxyServerNet_ServerModule::OnReqServerListProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnReqServerListProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     AFGUID nPlayerID;
     AFMsg::ReqServerList xMsg;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xMsg, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xMsg, nPlayerID))
     {
         return;
     }
@@ -305,39 +268,20 @@ void AFCProxyServerNet_ServerModule::OnReqServerListProcess(const int nMsgID, co
     }
 }
 
-int AFCProxyServerNet_ServerModule::Transpond(const int nMsgID, const char* msg, const uint32_t nLen)
+int AFCProxyServerNet_ServerModule::Transpond(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen)
 {
-    AFMsg::MsgBase xMsg;
-    if(!xMsg.ParseFromArray(msg, nLen))
+    ARK_SHARE_PTR<SessionData> pSessionData = mmSessionData.GetElement(xHead.GetPlayerID());
+    if(pSessionData)
     {
-        char szData[MAX_PATH] = { 0 };
-        sprintf(szData, "Parse Message Failed from Packet to MsgBase, MessageID: %d\n", nMsgID);
-
-        return false;
+        m_pNetModule->GetNet()->SendMsgWithOutHead(nMsgID, msg, nLen, pSessionData->mnClientID, xHead.GetPlayerID());
     }
 
-    //broadcast many palyer
-    for(int i = 0; i < xMsg.player_client_list_size(); ++i)
-    {
-        ARK_SHARE_PTR<SessionData> pSessionData = mmSessionData.GetElement(AFINetServerModule::PBToNF(xMsg.player_client_list(i)));
-        if(pSessionData)
-        {
-            m_pNetModule->GetNet()->SendMsgWithOutHead(nMsgID, msg, nLen, pSessionData->mnClientID);
-        }
-    }
+    return true;
+}
 
-    //playerid==ClientID;
-    ARK_SHARE_PTR<SessionData> pSessionData = mmSessionData.GetElement(AFINetServerModule::PBToNF(xMsg.player_id()));
-    if(xMsg.has_hash_ident() && pSessionData)
-    {
-        pSessionData->mnHashIdentID = AFINetServerModule::PBToNF(xMsg.hash_ident());
-    }
-
-    //send message to one player
-    if(xMsg.player_client_list_size() <= 0 && pSessionData)
-    {
-        m_pNetModule->GetNet()->SendMsgWithOutHead(nMsgID, msg, nLen, pSessionData->mnClientID);
-    }
+int AFCProxyServerNet_ServerModule::SendToPlayerClient(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID&  nClientID, const AFGUID&  nPlayer)
+{
+    m_pNetModule->GetNet()->SendMsgWithOutHead(nMsgID, msg, nLen, nClientID, nPlayer);
 
     return true;
 }
@@ -350,12 +294,12 @@ void AFCProxyServerNet_ServerModule::OnClientConnected(const AFGUID& xClientID)
     mmSessionData.AddElement(xClientID, pSessionData);
 }
 
-void AFCProxyServerNet_ServerModule::OnReqRoleListProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnReqRoleListProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     //在没有正式进入游戏之前，nPlayerID都是FD
     AFGUID nPlayerID;
     AFMsg::ReqRoleList xData;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xData, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xData, nPlayerID))
     {
         return;
     }
@@ -370,34 +314,23 @@ void AFCProxyServerNet_ServerModule::OnReqRoleListProcess(const int nMsgID, cons
                 && pSessionData->mnGameID == xData.game_id()
                 && pSessionData->mstrAccout == xData.account())
         {
-            AFMsg::MsgBase xMsg;
-            if(!xData.SerializeToString(xMsg.mutable_msg_data()))
-            {
-                return;
-            }
-
-            //playerid主要是网关转发消息的时候做识别使用，其他使用不使用
-            xMsg.mutable_player_id()->CopyFrom(AFINetServerModule::NFToPB(pSessionData->mnClientID));
-
             std::string strMsg;
-            if(!xMsg.SerializeToString(&strMsg))
+            if(!xData.SerializeToString(&strMsg))
             {
                 return;
             }
 
-            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_ROLE_LIST, strMsg);
+            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_ROLE_LIST, strMsg, xClientID);
         }
     }
 }
 
-void AFCProxyServerNet_ServerModule::OnReqCreateRoleProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnReqCreateRoleProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     //在没有正式进入游戏之前，nPlayerID都是FD
-
-
     AFGUID nPlayerID;
     AFMsg::ReqCreateRole xData;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xData, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xData, nPlayerID))
     {
         return;
     }
@@ -412,32 +345,23 @@ void AFCProxyServerNet_ServerModule::OnReqCreateRoleProcess(const int nMsgID, co
                 && pSessionData->mnGameID == xData.game_id()
                 && pSessionData->mstrAccout == xData.account())
         {
-            AFMsg::MsgBase xMsg;
-            if(!xData.SerializeToString(xMsg.mutable_msg_data()))
-            {
-                return;
-            }
-
-            //playerid主要是网关转发消息的时候做识别使用，其他使用不使用
-            xMsg.mutable_player_id()->CopyFrom(AFINetServerModule::NFToPB(pSessionData->mnClientID));
-
             std::string strMsg;
-            if(!xMsg.SerializeToString(&strMsg))
+            if(!xData.SerializeToString(&strMsg))
             {
                 return;
             }
 
-            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, strMsg);
+            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, strMsg, pSessionData->mnClientID);
         }
     }
 }
 
-void AFCProxyServerNet_ServerModule::OnReqDelRoleProcess(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnReqDelRoleProcess(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     //在没有正式进入游戏之前，nPlayerID都是FD
     AFGUID nPlayerID;
     AFMsg::ReqDeleteRole xData;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xData, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xData, nPlayerID))
     {
         return;
     }
@@ -452,17 +376,17 @@ void AFCProxyServerNet_ServerModule::OnReqDelRoleProcess(const int nMsgID, const
                 && pSessionData->mnGameID == xData.game_id()
                 && pSessionData->mstrAccout == xData.account())
         {
-            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, std::string(msg, nLen));
+            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, nMsgID, std::string(msg, nLen), xClientID);
         }
     }
 }
 
-void AFCProxyServerNet_ServerModule::OnReqEnterGameServer(const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
+void AFCProxyServerNet_ServerModule::OnReqEnterGameServer(const AFIMsgHead& xHead, const int nMsgID, const char* msg, const uint32_t nLen, const AFGUID& xClientID)
 {
     //在没有正式进入游戏之前，nPlayerID都是FD
     AFGUID nPlayerID;
     AFMsg::ReqEnterGameServer xData;
-    if(!m_pNetModule->ReceivePB(nMsgID, msg, nLen, xData, nPlayerID))
+    if(!m_pNetModule->ReceivePB(xHead, nMsgID, msg, nLen, xData, nPlayerID))
     {
         return;
     }
@@ -479,22 +403,14 @@ void AFCProxyServerNet_ServerModule::OnReqEnterGameServer(const int nMsgID, cons
                 && !xData.name().empty()
                 && !xData.account().empty())
         {
-            AFMsg::MsgBase xMsg;
-            if(!xData.SerializeToString(xMsg.mutable_msg_data()))
+            std::string strMsg;
+            if(!xData.SerializeToString(&strMsg))
             {
                 return;
             }
 
             //playerid在进入游戏之前都是FD，其他时候是真实的ID
-            xMsg.mutable_player_id()->CopyFrom(AFINetServerModule::NFToPB(pSessionData->mnClientID));
-
-            std::string strMsg;
-            if(!xMsg.SerializeToString(&strMsg))
-            {
-                return;
-            }
-
-            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_ENTER_GAME, strMsg);
+            m_pProxyServerToGameModule->GetClusterModule()->SendByServerID(pSessionData->mnGameID, AFMsg::EGameMsgID::EGMI_REQ_ENTER_GAME, strMsg, pSessionData->mnClientID);
         }
     }
 }
