@@ -80,52 +80,52 @@ public:
     //operator <<
     inline AFIDataList& operator<<(bool value)
     {
-        AddBool(value);
+        bool  bRet = AddBool(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(int8_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(uint8_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(int16_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(uint16_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(int32_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(uint32_t value)
     {
-        AddInt(value);
+        bool  bRet = AddInt(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(long value)
     {
 #if ARK_PLATFORM == PLATFORM_WIN || defined(WIN32)
-        AddInt(value);
+        bool  bRet = AddInt(value);
 #else
-        AddInt64(value);
+        bool  bRet = AddInt64(value);
 #endif
         return *this;
     }
@@ -133,62 +133,62 @@ public:
     inline AFIDataList& operator<<(unsigned long value)
     {
 #if ARK_PLATFORM == PLATFORM_WIN || defined(WIN32)
-        AddInt(value);
+        bool  bRet = AddInt(value);
 #else
-        AddInt64(value);
+        bool  bRet = AddInt64(value);
 #endif
         return *this;
     }
 
     inline AFIDataList& operator<<(int64_t value)
     {
-        AddInt64(value);
+        bool  bRet = AddInt64(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(uint64_t value)
     {
-        AddInt64(value);
+        bool  bRet = AddInt64(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(float value)
     {
-        AddFloat(value);
+        bool  bRet = AddFloat(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(double value)
     {
-        AddDouble(value);
+        bool  bRet = AddDouble(value);
         return *this;
     }
     inline AFIDataList& operator<<(const char* value)
     {
-        AddString(value);
+        bool  bRet = AddString(value);
         return *this;
     }
     inline AFIDataList& operator<<(const std::string& value)
     {
-        AddString(value.c_str());
+        bool  bRet = AddString(value.c_str());
         return *this;
     }
 
     inline AFIDataList& operator<<(const AFString<char, 128>& value)
     {
-        AddString(value.c_str());
+        bool  bRet = AddString(value.c_str());
         return *this;
     }
 
     inline AFIDataList& operator<<(const AFGUID& value)
     {
-        AddObject(value);
+        bool  bRet = AddObject(value);
         return *this;
     }
 
     inline AFIDataList& operator<<(const AFIDataList& value)
     {
-        Concat(value);
+        bool  bRet = Concat(value);
         return *this;
     }
 };

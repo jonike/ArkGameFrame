@@ -1,27 +1,23 @@
-/*****************************************************************************
-// * This source file is part of ArkGameFrame                                *
-// * For the latest info, see https://github.com/ArkGame                     *
-// *                                                                         *
-// * Copyright(c) 2013 - 2017 ArkGame authors.                               *
-// *                                                                         *
-// * Licensed under the Apache License, Version 2.0 (the "License");         *
-// * you may not use this file except in compliance with the License.        *
-// * You may obtain a copy of the License at                                 *
-// *                                                                         *
-// *     http://www.apache.org/licenses/LICENSE-2.0                          *
-// *                                                                         *
-// * Unless required by applicable law or agreed to in writing, software     *
-// * distributed under the License is distributed on an "AS IS" BASIS,       *
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*
-// * See the License for the specific language governing permissions and     *
-// * limitations under the License.                                          *
-// *                                                                         *
-// *                                                                         *
-// * @file      AFCClassModule.cpp                                              *
-// * @author    Ark Game Tech                                                *
-// * @date      2015-12-15                                                   *
-// * @brief     AFCClassModule                                                  *
-*****************************************************************************/
+/*
+* This source file is part of ArkGameFrame
+* For the latest info, see https://github.com/ArkGame
+*
+* Copyright (c) 2013-2017 ArkGame authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+*/
+
 #include "AFCClassModule.h"
 #include "RapidXML/rapidxml.hpp"
 #include "RapidXML/rapidxml_print.hpp"
@@ -31,19 +27,22 @@ bool AFCClassModule::Init()
 {
     m_pElementModule = pPluginManager->FindModule<AFIElementModule>();
 
-    Load();
+    bool bRet = Load();
+
+    ARK_ASSERT_RET_VAL(bRet, false);
 
     return true;
 }
 
 bool AFCClassModule::Shut()
 {
-    ClearAll();
+    bool bRet = ClearAll();
+    ARK_ASSERT_RET_VAL(bRet, false);
 
     return true;
 }
 
-AFCClassModule::AFCClassModule(AFIPluginManager* p)
+AFCClassModule::AFCClassModule(AFIPluginManager* p): m_pElementModule(nullptr)
 {
     pPluginManager = p;
 
@@ -254,18 +253,16 @@ bool AFCClassModule::AddClassInclude(const char* pstrClassFilePath, ARK_SHARE_PT
 
     //////////////////////////////////////////////////////////////////////////
     rapidxml::xml_document<> xDoc;
-    char* pData = NULL;
-    int nDataSize = 0;
+    size_t nDataSize = 0;
 
     std::string strFile = pPluginManager->GetConfigPath() + pstrClassFilePath;
     rapidxml::file<> fdoc(strFile.c_str());
     nDataSize = fdoc.size();
-    pData = new char[nDataSize + 1];
-    strncpy(pData, fdoc.data(), nDataSize);
+    ARK_SHARE_PTR<char> pData(new char[nDataSize + 1]);
+    strncpy(pData.get(), fdoc.data(), nDataSize);
 
-
-    pData[nDataSize] = 0;
-    xDoc.parse<0>(pData);
+    pData.get()[nDataSize] = 0;
+    xDoc.parse<0>(pData.get());
     //////////////////////////////////////////////////////////////////////////
 
     //support for unlimited layer class inherits
@@ -274,7 +271,12 @@ bool AFCClassModule::AddClassInclude(const char* pstrClassFilePath, ARK_SHARE_PT
     rapidxml::xml_node<>* pRropertyRootNode = root->first_node("Propertys");
     if(pRropertyRootNode)
     {
-        AddPropertys(pRropertyRootNode, pClass);
+        if(!AddPropertys(pRropertyRootNode, pClass))
+        {
+
+            ARK_ASSERT(0, "AddPropertys failed", __FILE__, __FUNCTION__);
+            return false;
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -282,13 +284,21 @@ bool AFCClassModule::AddClassInclude(const char* pstrClassFilePath, ARK_SHARE_PT
     rapidxml::xml_node<>* pRecordRootNode = root->first_node("Records");
     if(pRecordRootNode)
     {
-        AddRecords(pRecordRootNode, pClass);
+        if(!AddRecords(pRecordRootNode, pClass))
+        {
+            ARK_ASSERT(0, "AddRecords failed", __FILE__, __FUNCTION__);
+            return false;
+        }
     }
 
     rapidxml::xml_node<>* pComponentRootNode = root->first_node("Components");
     if(pComponentRootNode)
     {
-        AddComponents(pComponentRootNode, pClass);
+        if(!AddComponents(pComponentRootNode, pClass))
+        {
+            ARK_ASSERT(0, "AddComponents failed", __FILE__, __FUNCTION__);
+            return false;
+        }
     }
 
     //pClass->mvIncludeFile.push_back( pstrClassFilePath );
@@ -307,13 +317,6 @@ bool AFCClassModule::AddClassInclude(const char* pstrClassFilePath, ARK_SHARE_PT
             }
         }
     }
-
-    //////////////////////////////////////////////////////////////////////////
-    if(NULL != pData)
-    {
-        delete []pData;
-    }
-    //////////////////////////////////////////////////////////////////////////
 
     return true;
 }
@@ -395,12 +398,18 @@ bool AFCClassModule::Load(rapidxml::xml_node<>* attrNode, ARK_SHARE_PTR<AFIClass
     pClass->SetTypeName(pstrType);
     pClass->SetInstancePath(pstrInstancePath);
 
-    AddClass(pstrPath, pClass);
+    if(!AddClass(pstrPath, pClass))
+    {
+        return false;
+    }
 
     for(rapidxml::xml_node<>* pDataNode = attrNode->first_node(); pDataNode; pDataNode = pDataNode->next_sibling())
     {
         //her children
-        Load(pDataNode, pClass);
+        if(!Load(pDataNode, pClass))
+        {
+            return false;
+        }
     }
     //printf( "-----------------------------------------------------\n");
     return true;
@@ -410,32 +419,27 @@ bool AFCClassModule::Load()
 {
     //////////////////////////////////////////////////////////////////////////
     rapidxml::xml_document<> xDoc;
-    char* pData = NULL;
     int nDataSize = 0;
 
     std::string strFile = pPluginManager->GetConfigPath() + msConfigFileName;
 
     rapidxml::file<> fdoc(strFile.c_str());
     nDataSize = fdoc.size();
-    pData = new char[nDataSize + 1];
-    strncpy(pData, fdoc.data(), nDataSize);
+    ARK_SHARE_PTR<char> pData(new char[nDataSize + 1]);
+    strncpy(pData.get(), fdoc.data(), nDataSize);
 
-    pData[nDataSize] = 0;
-    xDoc.parse<0>(pData);
+    pData.get()[nDataSize] = 0;
+    xDoc.parse<0>(pData.get());
     //////////////////////////////////////////////////////////////////////////
     //support for unlimited layer class inherits
     rapidxml::xml_node<>* root = xDoc.first_node();
     for(rapidxml::xml_node<>* attrNode = root->first_node(); attrNode; attrNode = attrNode->next_sibling())
     {
-        Load(attrNode, NULL);
+        if(!Load(attrNode, NULL))
+        {
+            return false;
+        }
     }
-
-    //////////////////////////////////////////////////////////////////////////
-    if(NULL != pData)
-    {
-        delete []pData;
-    }
-    //////////////////////////////////////////////////////////////////////////
     return true;
 }
 

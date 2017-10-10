@@ -137,6 +137,7 @@ public:
     AFTime(int nYear, int nMonth, int nDay, int nHour, int nMinute, int nSecond)//with default(UTC+8) timezone
     {
         mnTime = 0;
+        mnTimeZone = AFCTimeBase::GetInstance().GetTimeZone();
         InitWithYMDHMSM(nYear, nMonth, nDay, nHour, nMinute, nSecond, 0);
     }
     AFTime(int nYear, int nMonth, int nDay, int nHour, int nMinute, int nSecond, int nMilliSecond, int nTimeZone = -1) //with particular timezone
@@ -598,33 +599,42 @@ private:
     {
         //time format is YYYY-MM-DD HH:mm:ss
         std::vector<std::string> cells;
-        Split(strTime, cells, " ");
+        int nCount = Split(strTime, cells, " ");
         if(cells.size() < 2)
         {
             return;
         }
         std::vector<std::string> cellsYMD;
-        Split(cells.at(0), cellsYMD, "-");
+        nCount = Split(cells.at(0), cellsYMD, "-");
         if(cellsYMD.size() != 3)
         {
             return;
         }
         std::vector<std::string> cellsHMS;
-        Split(cells.at(1), cellsHMS, ":");
+        nCount = Split(cells.at(1), cellsHMS, ":");
         if(cellsHMS.size() != 3)
         {
             return;
         }
-        int nYear = ARK_LEXICAL_CAST<int>(cellsYMD[0]);
-        int nMonth = ARK_LEXICAL_CAST<int>(cellsYMD[1]);
-        int nDay = ARK_LEXICAL_CAST<int>(cellsYMD[2]);
-        int nHour = ARK_LEXICAL_CAST<int>(cellsHMS[0]);
-        int nMinute = ARK_LEXICAL_CAST<int>(cellsHMS[1]);
-        int nSecond = ARK_LEXICAL_CAST<int>(cellsHMS[2]);
+
+        int nYear(0);
+        int nMonth(0);
+        int nDay(0);
+        int nHour(0);
+        int nMinute(0);
+        int nSecond(0);
+
+        bool bRet = Ark_from_str(cellsYMD[0], nYear);
+        bRet = Ark_from_str(cellsYMD[1], nMonth);
+        bRet = Ark_from_str(cellsYMD[2], nDay);
+        bRet = Ark_from_str(cellsHMS[0], nHour);
+        bRet = Ark_from_str(cellsHMS[1], nMinute);
+        bRet = Ark_from_str(cellsHMS[2], nSecond);
+
         int nMilliSecond = 0;
         if(cells.size() == 3)
         {
-            nMilliSecond = ARK_LEXICAL_CAST<int>(cells[2]);
+            bRet = Ark_from_str(cells[2], nMilliSecond);
         }
 
         if(nYear < 1970)
@@ -803,7 +813,7 @@ private:
             }
         }
 
-        return 0;
+        return ret_.size();
     }
 
 private:

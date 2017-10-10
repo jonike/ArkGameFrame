@@ -2,19 +2,24 @@
 
 ##### Copyright © [https://github.com/ArkGame](https://github.com/ArkGame "Ark Game")
 
+Website: https://arkgame.net
+<br>
 Github: https://github.com/ArkGame/ArkGameFrame
 <br>
 Gitee(码云): https://gitee.com/ArkGame/ArkGameFrame
 
 ## ArkGameFrame
-ArkGameFrame is a lightweight, fast, scalable, distributed plugin framework written in C++，make it easier to create game server. Greatly inspired by OGRE and Bigworld. It is a fork of the NFrame project.
+ArkGameFrame is a lightweight, fast, scalable, distributed plugin framework written in C++，make it easier to create game server. 
+
+
+
 ##### Wanna get the newest features? Please switch to the develop branch.
 
-**<font color=red>If you wanna commit PR or report issue, please refer to [Contribution Guide](https://github.com/ArkGame/ArkGameFrame/blob/master/CONTRIBUTING.md)</font>**
+**<font color=red>If you wanna commit PR or report issue, please refer to [Contribution Guide](https://github.com/ArkGame/ArkGameFrame/blob/master/Doc/CONTRIBUTING.md)</font>**
 
-## contact
-- QQ Group:540961187
-- mail:arkgametech@163.com
+## Contact
+- QQ Group: 540961187
+- mail: arkgametech@163.com
 
 ## Features
 - General abstract data system
@@ -66,13 +71,19 @@ svn checkout https://github.com/ArkGame/ArkGameFrame
 
 ## Supported Compilers
 
-* GCC >= 4.8 (**<font color=red>Recommend</font> Tested in Ubuntu 15.04**)
-* MSVC >= VS2015 (**<font color=red>Recommend</font> Tested in Win7/10**)
-* MSVC >= VS2012+ & GCC >= 4.4+ (By using `boost`, define macro `HAVE_BOOST`, then you need to add boost include files and libraries yourself, just to replace `boost::variant` and `boost::lexical_cast`)
+* GCC >= 4.8 (**<font color=red>Recommend</font>. Tested in Ubuntu 15.04**)
+* MSVC >= VS2015 (**<font color=red>Recommend</font>. Tested in Win7/10**)
 
 ## Build and Install
-### MSVC >= 2015
 
+### Windows
+##### Prerequisites:
+- Windows 10, 8.1, or 7
+- Visual Studio 2017 or Visual Studio 2015 Update 3
+- Git
+- CMake 3.9.1+
+
+##### Step:
 1. Git pull all source
 2. Run `Dep/build_dep.bat`
 3. Open the solution: `Frame/Ark.sln`
@@ -80,15 +91,18 @@ svn checkout https://github.com/ArkGame/ArkGameFrame
 5. Run `GenerateConfigXML.bat` to generate configuration files
 6. Run the binary file by `Bin/Server/Debug/Run.bat`
 
-### CodeBlocks >= 13.1(Only in linux)
+### linux
+We are still working on this platform, please wait for a while.
 
-1. Git pull all source
-2. Run `Dep/build_dep.sh`
-3. Open the solution with CodeBlocks: `Frame/Ark.workspace`
-4. Check `C++11` option in CodeBlocks compiler setting
-5. Build `Ark.workspace`
-6. Run `bash ./GenerateConfigXML.sh` to generate configuration files
-6. Run the binary file by `Bin/Server/Debug/rund.sh`
+
+>> ### CodeBlocks >= 13.1(Only in linux)
+>> 1. Git pull all source
+>> 2. Run `Dep/build_dep.sh`
+>> 3. Open the solution with CodeBlocks: `Frame/Ark.workspace`
+>> 4. Check `C++11` option in CodeBlocks compiler setting
+>> 5. Build `Ark.workspace`
+>> 6. Run `bash ./GenerateConfigXML.sh` to generate configuration files
+>> 7. Run the binary file by `Bin/Server/Debug/rund.sh`
 
 ## Documents
 
@@ -113,12 +127,19 @@ Our team has always specialized in the agile development and try to help differe
 ----------
 
 #### Plan
-- [ ] 1.优化数据管理性能
+- [x] 1.优化数据管理性能
 - [x] 2.优化网络性能
-- [ ] 3.优化heartbeat(Timer)性能，降低精度为秒(现在是毫秒)
+- [x] 3.优化heartbeat(Timer)性能，降低精度为秒(现在是毫秒)
 - [x] 4.增加Utility插件(放置一些常用功能)
 - [ ] 5.增加其他中间件(coroutine, mongoDB)
 - [ ] 6.增加通用的proxy-server(参考tconnd, tbus)
 - [ ] 7.完整的带业务功能的demo
 - [ ] 8.优化数据同步的流量,减小属性同步的体积(去掉`PropertyName`和`RecordName`类似的string同步)
 - [ ] 9.拓展record的组成，例如道具包含了宝石(带经验，附魔等)、武器(带随机属性)等东西，record现有的结构是特定的，不方便做扩展
+- [ ] 10.增加网络库的基准测试用例，放到目录benchmark/unittest
+- [ ] 11.CMake添加(`当前进度:` SDK部分已经完成(<font color=red>还缺少编译后事件</font>))
+
+----------
+
+#### The relationship with NF
+This branch comes from NF, we used to be the **CORE DEVELOPER** of NF, we create this project because some different ideas, and the **ArkGameFrame** contains many new contents and modifications.

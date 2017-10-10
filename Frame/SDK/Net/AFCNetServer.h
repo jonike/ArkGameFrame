@@ -1,27 +1,23 @@
-/*****************************************************************************
-// * This source file is part of ArkGameFrame                                *
-// * For the latest info, see https://github.com/ArkGame                     *
-// *                                                                         *
-// * Copyright(c) 2013 - 2017 ArkGame authors.                               *
-// *                                                                         *
-// * Licensed under the Apache License, Version 2.0 (the "License");         *
-// * you may not use this file except in compliance with the License.        *
-// * You may obtain a copy of the License at                                 *
-// *                                                                         *
-// *     http://www.apache.org/licenses/LICENSE-2.0                          *
-// *                                                                         *
-// * Unless required by applicable law or agreed to in writing, software     *
-// * distributed under the License is distributed on an "AS IS" BASIS,       *
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*
-// * See the License for the specific language governing permissions and     *
-// * limitations under the License.                                          *
-// *                                                                         *
-// *                                                                         *
-// * @file      AFCNetServer.h                                                *
-// * @author    Ark Game Tech                                                *
-// * @date      2015-12-15                                                   *
-// * @brief     AFCNetServer                                                  *
-*****************************************************************************/
+/*
+* This source file is part of ArkGameFrame
+* For the latest info, see https://github.com/ArkGame
+*
+* Copyright (c) 2013-2017 ArkGame authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+*/
+
 #pragma once
 
 #include <thread>
@@ -45,18 +41,22 @@ class AFCNetServer : public AFINet
 {
 public:
     AFCNetServer()
+        : mnMaxConnect(0)
+        , mnCpuCount(0)
+        , mnServerID(0)
     {
-        mnCpuCount = 0;
         bWorking = false;
     }
 
     template<typename BaseType>
     AFCNetServer(BaseType* pBaseType, void (BaseType::*handleRecieve)(const AFIMsgHead& xHead, const int, const char*, const uint32_t, const AFGUID&), void (BaseType::*handleEvent)(const NetEventType, const AFGUID&, const int))
+        : mnMaxConnect(0)
+        , mnCpuCount(0)
+        , mnServerID(0)
     {
         mRecvCB = std::bind(handleRecieve, pBaseType, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mEventCB = std::bind(handleEvent, pBaseType, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-        mnCpuCount = 0;
-        mnServerID = 0;
+        bWorking = false;
     }
 
     virtual ~AFCNetServer()
@@ -115,7 +115,6 @@ private:
     std::unique_ptr<evpp::TCPServer> m_pTcpSrv;
     std::unique_ptr<evpp::EventLoopThread> m_pListenThread;
     std::map<AFGUID, NetObject*> mmObject;
-    //AFLockFreeQueue<MsgFromNetInfo*> mqMsgFromNet;
     AFCReaderWriterLock mRWLock;
     int mnMaxConnect;
     std::string mstrIPPort;

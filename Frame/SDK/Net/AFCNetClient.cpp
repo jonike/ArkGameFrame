@@ -120,8 +120,8 @@ void AFCNetClient::Initialization(const std::string& strAddrPort, const int nSer
     m_pThread->Start();
 
     m_pClient.reset(new evpp::TCPClient(m_pThread->loop(), mstrIPPort, "TCPPingPongClient"));
-    m_pClient->SetConnectionCallback(std::bind(&AFCNetClient::OnClientConnection, std::placeholders::_1, (void*) this));
-    m_pClient->SetMessageCallback(std::bind(&AFCNetClient::OnMessage, std::placeholders::_1, std::placeholders::_2, (void*)this));
+    m_pClient->SetConnectionCallback(std::bind(&AFCNetClient::OnClientConnectionInner,this, std::placeholders::_1));
+    m_pClient->SetMessageCallback(std::bind(&AFCNetClient::OnMessageInner, this, std::placeholders::_1, std::placeholders::_2));
     m_pClient->set_auto_reconnect(false);
     m_pClient->Connect();
 
@@ -130,7 +130,11 @@ void AFCNetClient::Initialization(const std::string& strAddrPort, const int nSer
 
 bool AFCNetClient::Final()
 {
-    CloseSocketAll();
+    if(!CloseSocketAll())
+    {
+        //add log
+    }
+
     m_pThread->Stop(true);
     bWorking = false;
     return true;
@@ -144,11 +148,6 @@ bool AFCNetClient::CloseSocketAll()
 
 bool AFCNetClient::SendMsg(const char* msg, const uint32_t nLen, const AFGUID& xClient)
 {
-    if(nLen <= 0)
-    {
-        return false;
-    }
-
     if(m_pClient->conn().get())
     {
         m_pClient->conn()->Send(msg, nLen);
@@ -176,9 +175,12 @@ bool AFCNetClient::DismantleNet(NetObject* pObject)
             pNetInfo->nType = RECIVEDATA;
             pNetInfo->strMsg.append(pObject->GetBuff() + AFIMsgHead::AF_Head::NF_HEAD_LENGTH, nMsgBodyLength);
             pObject->mqMsgFromNet.Push(pNetInfo);
-            pObject->RemoveBuff(nMsgBodyLength + AFIMsgHead::AF_Head::NF_HEAD_LENGTH);
+            int nNewSize = pObject->RemoveBuff(nMsgBodyLength + AFIMsgHead::AF_Head::NF_HEAD_LENGTH);
         }
-        break;
+        else
+        {
+            break;
+        }
     }
 
     return true;
@@ -264,22 +266,26 @@ void AFCNetClient::OnMessage(const evpp::TCPConnPtr& conn, evpp::Buffer* msg, vo
 
 void AFCNetClient::OnMessageInner(const evpp::TCPConnPtr& conn, evpp::Buffer* msg)
 {
-    if (NULL == msg)
+    if(NULL == msg)
     {
         return;
     }
 
     nReceiverSize += msg->length();
     NetObject* pObject = evpp::any_cast<NetObject*>(conn->context());
-    if (NULL == pObject)
+    if(NULL == pObject)
     {
         return;
     }
 
     evpp::Slice xMsgBuff;
     xMsgBuff = msg->NextAll();
-    pObject->AddBuff(xMsgBuff.data(), xMsgBuff.size());
-    DismantleNet(pObject);
+    int nRet = pObject->AddBuff(xMsgBuff.data(), xMsgBuff.size());
+    bool bRet = DismantleNet(pObject);
+    if(!bRet)
+    {
+        //add log
+    }
 }
 
 bool AFCNetClient::SendMsgWithOutHead(const int16_t nMsgID, const char* msg, const uint32_t nLen, const AFGUID & xClientID, const AFGUID& xPlayerID)
@@ -302,7 +308,7 @@ bool AFCNetClient::SendMsgWithOutHead(const int16_t nMsgID, const char* msg, con
 int AFCNetClient::EnCode(const AFCMsgHead& xHead, const char* strData, const uint32_t unDataLen, std::string& strOutData)
 {
     char szHead[AFIMsgHead::AF_Head::NF_HEAD_LENGTH] = { 0 };
-    xHead.EnCode(szHead);
+    int nSize = xHead.EnCode(szHead);
 
     strOutData.clear();
     strOutData.append(szHead, AFIMsgHead::AF_Head::NF_HEAD_LENGTH);

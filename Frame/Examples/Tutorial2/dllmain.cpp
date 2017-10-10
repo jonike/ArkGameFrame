@@ -29,7 +29,7 @@
 
 #pragma comment(lib, "AFCore_d.lib")
 #pragma comment(lib, "AFProto_d.lib")
-#pragma comment(lib, "libprotobuf_d.lib")
+#pragma comment(lib, "libprotobufd.lib")
 
 #else
 

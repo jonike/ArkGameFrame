@@ -1,36 +1,31 @@
-/*****************************************************************************
-// * This source file is part of ArkGameFrame                                *
-// * For the latest info, see https://github.com/ArkGame                     *
-// *                                                                         *
-// * Copyright(c) 2013 - 2017 ArkGame authors.                               *
-// *                                                                         *
-// * Licensed under the Apache License, Version 2.0 (the "License");         *
-// * you may not use this file except in compliance with the License.        *
-// * You may obtain a copy of the License at                                 *
-// *                                                                         *
-// *     http://www.apache.org/licenses/LICENSE-2.0                          *
-// *                                                                         *
-// * Unless required by applicable law or agreed to in writing, software     *
-// * distributed under the License is distributed on an "AS IS" BASIS,       *
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*
-// * See the License for the specific language governing permissions and     *
-// * limitations under the License.                                          *
-// *                                                                         *
-// *                                                                         *
-// * @file      AFCElementModule.cpp                                              *
-// * @author    Ark Game Tech                                                *
-// * @date      2015-12-15                                                   *
-// * @brief     AFCElementModule                                                  *
-*****************************************************************************/
-#include <algorithm>
-#include <ctype.h>
+/*
+* This source file is part of ArkGameFrame
+* For the latest info, see https://github.com/ArkGame
+*
+* Copyright (c) 2013-2017 ArkGame authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+*/
+
 #include "AFCElementModule.h"
 #include "AFCClassModule.h"
 
 AFCElementModule::AFCElementModule(AFIPluginManager* p)
+    : m_pClassModule(nullptr)
+    , mbLoaded(false)
 {
     pPluginManager = p;
-    mbLoaded = false;
 }
 
 AFCElementModule::~AFCElementModule()
@@ -42,15 +37,12 @@ bool AFCElementModule::Init()
 {
     m_pClassModule = pPluginManager->FindModule<AFIClassModule>();
 
-    Load();
-
-    return true;
+    return Load();
 }
 
 bool AFCElementModule::Shut()
 {
-    Clear();
-    return true;
+    return Clear();
 }
 
 bool AFCElementModule::Load()
@@ -71,32 +63,28 @@ bool AFCElementModule::Load()
         }
         //////////////////////////////////////////////////////////////////////////
         rapidxml::xml_document<> xDoc;
-        char* pData = NULL;
         int nDataSize = 0;
 
         std::string strFile = pPluginManager->GetConfigPath() + strInstancePath;
         rapidxml::file<> fdoc(strFile.c_str());
         nDataSize = fdoc.size();
-        pData = new char[nDataSize + 1];
-        strncpy(pData, fdoc.data(), nDataSize);
+        ARK_SHARE_PTR<char>pData(new char[nDataSize + 1]);
+        strncpy(pData.get(), fdoc.data(), nDataSize);
 
-        pData[nDataSize] = 0;
-        xDoc.parse<0>(pData);
+        pData.get()[nDataSize] = 0;
+        xDoc.parse<0>(pData.get());
         //////////////////////////////////////////////////////////////////////////
         //support for unlimited layer class inherits
         rapidxml::xml_node<>* root = xDoc.first_node();
         for(rapidxml::xml_node<>* attrNode = root->first_node(); attrNode; attrNode = attrNode->next_sibling())
         {
-            Load(attrNode, pLogicClass);
+            if(!Load(attrNode, pLogicClass))
+            {
+                return false;
+            }
         }
 
         mbLoaded = true;
-        //////////////////////////////////////////////////////////////////////////
-        if(NULL != pData)
-        {
-            delete []pData;
-        }
-        //////////////////////////////////////////////////////////////////////////
         pLogicClass = m_pClassModule->Next();
     }
 
@@ -148,10 +136,10 @@ bool AFCElementModule::Load(rapidxml::xml_node<>* attrNode, ARK_SHARE_PTR<AFICla
         }
         //////////////////////////////////////////////////////////////////////////
         size_t record_count = pClassRecordManager->GetCount();
-        for (size_t i = 0; i < record_count; ++i)
+        for(size_t i = 0; i < record_count; ++i)
         {
             AFRecord* pRecord = pClassRecordManager->GetRecordByIndex(i);
-            if (NULL == pRecord)
+            if(NULL == pRecord)
             {
                 continue;
             }
@@ -316,7 +304,7 @@ const char*  AFCElementModule::GetPropertyString(const std::string& strConfigNam
 AFProperty* AFCElementModule::GetProperty(const std::string& strConfigName, const std::string& strPropertyName)
 {
     ElementConfigInfo* pElementInfo = mxElementConfigMap.GetElement(strConfigName);
-    if (NULL != pElementInfo)
+    if(NULL != pElementInfo)
     {
         return pElementInfo->GetPropertyManager()->GetProperty(strPropertyName.c_str());
     }
@@ -327,7 +315,7 @@ AFProperty* AFCElementModule::GetProperty(const std::string& strConfigName, cons
 ARK_SHARE_PTR<AFIPropertyMgr> AFCElementModule::GetPropertyManager(const std::string& strConfigName)
 {
     ElementConfigInfo* pElementInfo = mxElementConfigMap.GetElement(strConfigName);
-    if (NULL != pElementInfo)
+    if(NULL != pElementInfo)
     {
         return pElementInfo->GetPropertyManager();
     }
@@ -338,7 +326,7 @@ ARK_SHARE_PTR<AFIPropertyMgr> AFCElementModule::GetPropertyManager(const std::st
 ARK_SHARE_PTR<AFIRecordMgr> AFCElementModule::GetRecordManager(const std::string& strConfigName)
 {
     ElementConfigInfo* pElementInfo = mxElementConfigMap.GetElement(strConfigName);
-    if (NULL != pElementInfo)
+    if(NULL != pElementInfo)
     {
         return pElementInfo->GetRecordManager();
     }
